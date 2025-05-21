@@ -3,19 +3,20 @@
 default_password=123@mudar
 default_days=45
 default_expiry=0
-current_version=1.1.0
+current_version=1.2.0
 
 echo ""
 echo ""
 echo "** User Manager (uman.sh)"
 echo "** (C) Copyright 2025 Dany Eudes Romeira"
-echo "** MIT License (http://en.wikipedia.org/wiki/MIT_License"
+echo "** MIT License (http://en.wikipedia.org/wiki/MIT_License)"
 echo ""
 
 [ $# -eq 0 ] && { echo "ERR: No arguments provided"; echo; echo "Use:"; echo "$0 -h, --help"; echo; exit 1; }
 
 POSITIONAL_ARGS=()
 RANDOM_PASS=NO
+INTERACTIVE=NO
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -25,6 +26,7 @@ while [[ $# -gt 0 ]]; do
     -d|--days) DAYS="$2"; shift 2 ;;
     -x|--expiry-time) EXPIRY_TIME="$2"; shift 2 ;;
     -R|--random-password) RANDOM_PASS=YES; shift ;;
+    -i|--interactive) INTERACTIVE=YES; shift ;;    
     -h|--help)
       cat <<EOF
 Usage: sudo $0 [options]
@@ -36,6 +38,7 @@ Options:
   -x, --expiry-time <date>   Set absolute expiry date (YYYY-MM-DD or 0)
   -R, --random-password      Set secure random password (keeps current expiry)
   -h, --help                 Show this help
+  -i, --interactive          Prompt for password securely (no echo)  
   -v, --version              Show version
 
 Examples:
@@ -65,6 +68,16 @@ Examples:
 
   + Set random password and specific expiry date:
     sudo $0 -u user09 -R -x 2025-12-31
+
+  + Interactive password change only (keeps current expiry settings):
+    sudo $0 -u user10 -i
+    
+  + Interactive password plus set expiry to default value:
+    sudo $0 -u user11 -i -d 
+    
+  + Interactive password plus set 90-day expiry:
+    sudo $0 -u user12 -i -d 90
+
 EOF
       exit 0 ;;
     -v|--version) echo "Version ${current_version}"; exit 0 ;;
@@ -83,6 +96,19 @@ if [[ $RANDOM_PASS == "YES" ]]; then
   samba-tool user setpassword ${USER} --newpassword="${NEW_PASS}" 1> /dev/null
   echo "Random password set for ${USER}"
   echo "New password: ${NEW_PASS}"
+elif [[ $INTERACTIVE == "YES" ]]; then
+  # Secure password prompt
+  echo -n "Enter new password for ${USER} (hidden input): "
+  stty -echo  # Disable echo
+  read -r PASSWORD
+  stty echo   # Re-enable echo
+  echo        # Add newline after hidden input
+  if [[ -z "$PASSWORD" ]]; then
+    echo "ERR: No password provided"
+    exit 1
+  fi
+  samba-tool user setpassword ${USER} --newpassword="${PASSWORD}" 1> /dev/null
+  echo "Password updated for ${USER}"  
 elif [[ $RESET == "YES" ]]; then
   PASSWORD=${PASSWORD:-$default_password}
   samba-tool user setpassword ${USER} --newpassword="${PASSWORD}" 1> /dev/null
