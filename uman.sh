@@ -1,9 +1,9 @@
 #!/bin/bash
 
 default_password=123@mudar
-default_days=45
+default_days=180
 default_expiry=0
-current_version=1.2.0
+current_version=1.2.1
 
 echo ""
 echo ""
@@ -96,6 +96,11 @@ if [[ $RANDOM_PASS == "YES" ]]; then
   samba-tool user setpassword ${USER} --newpassword="${NEW_PASS}" 1> /dev/null
   echo "Random password set for ${USER}"
   echo "New password: ${NEW_PASS}"
+elif [[ $RESET == "YES" ]]; then
+  PASSWORD=${PASSWORD:-$default_password}
+  samba-tool user setpassword ${USER} --newpassword="${PASSWORD}" 1> /dev/null
+  samba-tool user setexpiry ${USER} --days=${default_days} 1> /dev/null  # ← Force default expiry
+  echo "Password AND expiry reset to default for ${USER}"  
 elif [[ $INTERACTIVE == "YES" ]]; then
   # Secure password prompt
   echo -n "Enter new password for ${USER} (hidden input): "
@@ -109,26 +114,30 @@ elif [[ $INTERACTIVE == "YES" ]]; then
   fi
   samba-tool user setpassword ${USER} --newpassword="${PASSWORD}" 1> /dev/null
   echo "Password updated for ${USER}"  
-elif [[ $RESET == "YES" ]]; then
-  PASSWORD=${PASSWORD:-$default_password}
-  samba-tool user setpassword ${USER} --newpassword="${PASSWORD}" 1> /dev/null
-  echo "Password reset to default for ${USER}"
 elif [[ -n "$PASSWORD" ]]; then
   samba-tool user setpassword ${USER} --newpassword="${PASSWORD}" 1> /dev/null
   echo "Password updated for ${USER}"
 fi
 
-# Expiry operations
-if [[ -n "$EXPIRY_TIME" ]]; then
-  [[ "$EXPIRY_TIME" == "0" ]] && ACTION="--days=0" || ACTION="--expiry-time=${EXPIRY_TIME}"
-  samba-tool user setexpiry ${USER} $ACTION 1> /dev/null
-  echo "Expiry date set"
-elif [[ -n "$DAYS" ]]; then
-  samba-tool user setexpiry ${USER} --days=${DAYS} 1> /dev/null
-  echo "Expiry set to ${DAYS} days"
-elif [[ $RANDOM_PASS != "YES" && -z "$PASSWORD" ]]; then
-  samba-tool user setexpiry ${USER} --days=0 1> /dev/null
-  echo "Account expired immediately (default)"
+# Expiry operations (skip if reset already handled it)
+if [[ $RESET != "YES" ]]; then
+  if [[ -n "$EXPIRY_TIME" ]]; then
+    [[ "$EXPIRY_TIME" == "0" ]] && ACTION="--days=0" || ACTION="--expiry-time=${EXPIRY_TIME}"
+    samba-tool user setexpiry ${USER} $ACTION 1> /dev/null
+    echo "Expiry date set"
+  elif [[ -n "$DAYS" ]]; then
+    DAYS_VALUE="${DAYS:-$default_days}"  # Default to 180 if empty
+    if [[ $DAYS_VALUE =~ ^[0-9]+$ ]]; then
+      samba-tool user setexpiry ${USER} --days=${DAYS_VALUE} 1> /dev/null
+      echo "Expiry set to ${DAYS_VALUE} days"
+    else
+      echo "ERR: Days must be a number"
+      exit 1
+    fi
+  elif [[ -z "$PASSWORD" && $RANDOM_PASS != "YES" && $INTERACTIVE != "YES" ]]; then
+    samba-tool user setexpiry ${USER} --days=0 1> /dev/null
+    echo "Account expired immediately (default)"
+  fi
 fi
 
 echo
