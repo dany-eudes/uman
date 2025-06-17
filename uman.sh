@@ -3,7 +3,7 @@
 default_password=123@mudar
 default_days=180
 default_expiry=0
-current_version=1.2.1
+current_version=1.2.2
 
 echo ""
 echo ""
@@ -23,7 +23,17 @@ while [[ $# -gt 0 ]]; do
     -u|--user) USER="$2"; shift 2 ;;
     -p|--password) PASSWORD="$2"; shift 2 ;;
     -r|--reset) RESET=YES; shift ;;
-    -d|--days) DAYS="$2"; shift 2 ;;
+    -d|--days)
+      DAYS_SET=YES
+      # Handle empty -d by using default_days
+      if [[ -n "$2" && "$2" =~ ^[0-9]+$ ]]; then
+        DAYS="$2"
+        shift 2
+      else
+        DAYS="$default_days"
+        shift
+      fi
+     ;;    
     -x|--expiry-time) EXPIRY_TIME="$2"; shift 2 ;;
     -R|--random-password) RANDOM_PASS=YES; shift ;;
     -i|--interactive) INTERACTIVE=YES; shift ;;    
@@ -125,11 +135,10 @@ if [[ $RESET != "YES" ]]; then
     [[ "$EXPIRY_TIME" == "0" ]] && ACTION="--days=0" || ACTION="--expiry-time=${EXPIRY_TIME}"
     samba-tool user setexpiry ${USER} $ACTION 1> /dev/null
     echo "Expiry date set"
-  elif [[ -n "$DAYS" ]]; then
-    DAYS_VALUE="${DAYS:-$default_days}"  # Default to 180 if empty
-    if [[ $DAYS_VALUE =~ ^[0-9]+$ ]]; then
-      samba-tool user setexpiry ${USER} --days=${DAYS_VALUE} 1> /dev/null
-      echo "Expiry set to ${DAYS_VALUE} days"
+  elif [[ $DAYS_SET == "YES" ]]; then  # Changed from -n "$DAYS"
+    if [[ $DAYS =~ ^[0-9]+$ ]]; then
+      samba-tool user setexpiry ${USER} --days=${DAYS} 1> /dev/null
+      echo "Expiry set to ${DAYS} days"
     else
       echo "ERR: Days must be a number"
       exit 1
