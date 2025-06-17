@@ -1,7 +1,7 @@
 #!/bin/bash
 
 default_password=123@mudar
-default_days=180
+default_days=90
 default_expiry=0
 current_version=1.2.2
 
