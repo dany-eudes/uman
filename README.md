@@ -35,13 +35,27 @@ sudo ./uman.sh [OPTIONS]
 
 ## Common Operations
 
-| Command                     | Description                 |
-|-----------------------------|-----------------------------|
-| sudo uman.sh -u username -i            | Interactive password change |
-| sudo uman.sh -u username -R            | Set random password         |
-| sudo uman.sh -u username -i -d 90	     | Change password + 90-day expiry |
-| sudo uman.sh -u username -x 0	         | Immediate account lock |
-| sudo uman.sh -u username -x 2025-12-31 |	Set absolute expiration date|
+| Category               | Command Example                                                                 | Description                                                                 | Security Notes                          |
+|------------------------|---------------------------------------------------------------------------------|-----------------------------------------------------------------------------|-----------------------------------------|
+| **Account Lock/Unlock** |                                                                                 |                                                                             |                                         |
+|                        | `sudo uman.sh -u user08`                                                      | Immediate account lock (sets expiry to 0 days)                              | Permanent access revocation             |
+|                        | `sudo uman.sh -u locked_user -d 180`                                          | Unlock account + set 180-day expiry                                        | Use for temporary suspensions           |
+| **Password Resets**    |                                                                                 |                                                                             |                                         |
+|                        | `sudo uman.sh -r -u user01`                                                   | Reset to default password + 180-day expiry                                  | Change default password in production   |
+|                        | `sudo uman.sh -u user02 -d`                                                   | Extend expiry to default (180 days)                                         | No password change                      |
+|                        | `sudo uman.sh -r -u user03 -d 30`                                             | Reset password + 30-day expiry                                              | For frequent rotations                  |
+| **Secure Operations**  |                                                                                 |                                                                             |                                         |
+|                        | `sudo uman.sh -u user06 -R`                                                   | Set cryptographically random password                                       | Best for automated systems              |
+|                        | `sudo uman.sh -u user07 -R -d 90`                                             | Random password + 90-day expiry                                             | Ideal for contractor accounts           |
+|                        | `sudo uman.sh -u user10 -i`                                                   | Interactive password prompt (no characters shown)                           | Most secure manual method               |
+| **Advanced Controls**  |                                                                                 |                                                                             |                                         |
+|                        | `sudo uman.sh -u user09 -R -x 2025-12-31`                                     | Random password + expires on specific date                                  | For compliance deadlines                |
+|                        | `sudo uman.sh -u user12 -i -d 90`                                             | Interactive password + 90-day expiry                                        | Security + accountability combo         |
+| **Special Cases**      |                                                                                 |                                                                             |                                         |
+|                        | `sudo uman.sh -u service_account -d -1`                                       | Disable password expiry (use with caution)                                  | For system/service accounts only        |
+|                        | `sudo uman.sh -u temp_worker -x $(date +%F -d "+30days")`                     | Set 30-day absolute expiry from today                                       | Precise contract end dates              |
+
+
 
 ## Full Options
 
@@ -76,6 +90,57 @@ Terminating access:
 sudo uman.sh -u formeremployee -x 0
 ```
 
+## More Enhanced Examples
+### 1. Security-Focused Examples 
+
+a. Employee onboarding (random temp password + 90-day expiry)
+```bash
+sudo uman.sh -u new_employee -R -d 90
+```
+b. Contractor account (30-day expiry with notification)
+```bash
+sudo uman.sh -u contractor_123 -d 30 && \
+echo "Account expires in 30 days" | mail -s "Password Notification" contractor@example.com
+```
+c. High-security reset (random pass + immediate expiry = secure temporary access)
+```bash
+sudo uman.sh -u audit_user -R -x 0
+```
+### 2. Compliance Scenarios
+ 
+a. Quarterly password rotation (90 days)
+```bash
+sudo uman.sh -u finance_user -d 90
+```
+b. HIPAA/GDPR compliance (force change now)
+```bash
+sudo uman.sh -u compliance_user -x $(date -d "+1 day" +%Y-%m-%d)
+```
+### 3. Troubleshooting
+
+a. Unlock account (reset password + clear expiry)
+```bash
+sudo uman.sh -u locked_user -r -d -1  # If supported by samba-tool
+```
+b. Verify settings
+```bash
+sudo uman.sh -u test_user -d 7 && \
+samba-tool user show test_user | grep -i "expir"
+```
+### 4. Automation-Friendly
+
+a. Bulk password reset (for onboarding)
+```bash
+for user in user1 user2 user3; do
+  sudo uman.sh -u $user -R -d 90
+done
+```
+b. CSV-driven updates (example)
+```bash
+csvtool -c 1,2 users.csv | while read user days; do
+  sudo uman.sh -u $user -d $days
+done
+```
 ## Security Notes
 🔐 Always use -i or -R instead of -p for production systems
 
